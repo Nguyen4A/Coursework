@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+    <h1>{{ title }}</h1>
+    <form method="post">
+        {% csrf_token %}
+        {% include 'shared/form.html' %}
+        <button class="primary">Сохранить</button>
+    </form>
+</section>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+    <h1>{{ title|default:"Настройки почты" }}</h1>
+    <form method="post">
+        {% csrf_token %}
+        {% include 'shared/form.html' %}
+        <button class="primary">Сохранить</button>
+        <a class="button" href="{% url 'receipts:email_sources' %}">Назад</a>
+    </form>
+</section>
+<script>
+    const passwordInput = document.querySelector('input[type="password"]');
+    if (passwordInput) {
+        const toggleButton = document.createElement('button');
+        toggleButton.type = 'button';
+        toggleButton.className = 'password-toggle';
+        toggleButton.textContent = 'Показать пароль';
+        passwordInput.insertAdjacentElement('afterend', toggleButton);
+
+        toggleButton.addEventListener('click', () => {
+            const isHidden = passwordInput.type === 'password';
+            passwordInput.type = isHidden ? 'text' : 'password';
+            toggleButton.textContent = isHidden ? 'Скрыть пароль' : 'Показать пароль';
+        });
+    }
+</script>
+{% endblock %}

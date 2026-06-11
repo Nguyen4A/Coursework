@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+    <h1>Загрузка файла чека</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% include 'shared/form.html' %}
+        <button class="primary">Сохранить и обработать</button>
+    </form>
+</section>
+{% endblock %}

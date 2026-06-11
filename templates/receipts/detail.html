@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+    <h1>{{ receipt }}</h1>
+    <p>Статус: {{ receipt.status }} · создан: {{ receipt.created_at }}</p>
+    {% if receipt.file %}<p>Файл: <a href="{{ receipt.file.url }}">{{ receipt.file.name }}</a></p>{% endif %}
+    <h2>Позиции</h2>
+    <ul>
+        {% for item in receipt.items.all %}
+            <li>{{ item.raw_name }} · {{ item.quantity }} {{ item.unit }} · {{ item.category }}{% if item.created_product %} → продукт создан{% endif %}</li>
+        {% empty %}
+            <li>Позиции пока не распознаны.</li>
+        {% endfor %}
+    </ul>
+    <h2>Вставить распознанный текст</h2>
+    <form method="post">
+        {% csrf_token %}
+        {% include 'shared/form.html' %}
+        <button class="primary">Обработать текст</button>
+    </form>
+</section>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-head">
+    <h1>Импорт из почты</h1>
+    <a class="button primary" href="{% url 'receipts:email_source_create' %}">Добавить почту</a>
+</div>
+<section class="card">
+    {% for source in sources %}
+        <div class="row">
+            <div><strong>{{ source.name }}</strong><br><span class="muted">{{ source.username }} @ {{ source.host }}</span></div>
+            <div class="actions">
+                <a class="button" href="/receipts/email/{{ source.pk }}/edit/">Редактировать</a>
+                <form method="post" action="{% url 'receipts:email_import_run' source.pk %}">
+                    {% csrf_token %}
+                    <button>Импортировать</button>
+                </form>
+                <form method="post" action="{% url 'receipts:email_source_delete' source.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="danger">Удалить</button>
+                </form>
+            </div>
+        </div>
+    {% empty %}
+        <p>Источники почты не настроены.</p>
+    {% endfor %}
+</section>
+{% endblock %}

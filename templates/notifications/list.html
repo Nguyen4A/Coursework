@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-head">
+    <h1>Уведомления</h1>
+    <form method="post" action="{% url 'notifications:mark_all_read' %}">{% csrf_token %}<button>Отметить прочитанными</button></form>
+</div>
+<section class="card">
+    {% for notification in notifications %}
+        <div class="row {% if not notification.is_read %}unread{% endif %}">
+            <div>{{ notification.message }}<br><span class="muted">{{ notification.created_at }}{% if notification.email_sent %} · email отправлен{% endif %}</span></div>
+        </div>
+    {% empty %}
+        <p>Уведомлений нет.</p>
+    {% endfor %}
+</section>
+{% endblock %}

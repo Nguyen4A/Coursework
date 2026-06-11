@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Профиль{% endblock %}
+{% block content %}
+<section class="card narrow">
+    <h1>Профиль</h1>
+    <form method="post">
+        {% csrf_token %}
+        {% include 'shared/form.html' %}
+        <button class="primary">Сохранить</button>
+    </form>
+</section>
+{% endblock %}

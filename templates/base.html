@@ -1,0 +1,35 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Smart Fridge{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="{% url 'pantry:product_list' %}">Smart Fridge</a>
+        <nav>
+            {% if user.is_authenticated %}
+                <a href="{% url 'pantry:product_list' %}">Продукты</a>
+                <a href="{% url 'receipts:import_text' %}">Чек</a>
+                <a href="{% url 'receipts:email_sources' %}">Почта</a>
+                <a href="{% url 'knowledge:rule_list' %}">Сроки</a>
+                <a href="{% url 'notifications:list' %}">Уведомления</a>
+                <a href="{% url 'accounts:profile' %}">Профиль</a>
+                <form class="inline" method="post" action="{% url 'logout' %}">{% csrf_token %}<button>Выход</button></form>
+            {% else %}
+                <a href="{% url 'login' %}">Вход</a>
+                <a href="{% url 'accounts:register' %}">Регистрация</a>
+            {% endif %}
+        </nav>
+    </header>
+    <main class="container">
+        {% for message in messages %}
+            <div class="message {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

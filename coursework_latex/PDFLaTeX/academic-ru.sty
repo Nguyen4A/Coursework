@@ -1,0 +1,288 @@
+%%==============================================================================
+%% academic-ru.sty — Стилевой пакет для академических документов на русском языке
+%%------------------------------------------------------------------------------
+%% Автор:        Калитвин В.
+%% Версия:       1.0 (2026/05/19)
+%% Назначение:   Унифицированное оформление научных и учебных документов
+%%               (статьи, методические пособия, отчёты, диссертации).
+%% Компилятор:   XeLaTeX или LuaLaTeX (требуется fontspec).
+%% Использование: \usepackage{academic-ru}
+%%==============================================================================
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{academic-ru}[2026/05/19 v1.0 Academic Russian style package]
+
+%%------------------------------------------------------------------------------
+%% 1. ОПЦИИ ПАКЕТА
+%%------------------------------------------------------------------------------
+\RequirePackage{kvoptions}
+\SetupKeyvalOptions{family=acru, prefix=acru@}
+
+\DeclareStringOption[12pt]{fontsize}        % размер основного шрифта
+\DeclareStringOption[1.5]{linespread}        % межстрочный интервал
+\DeclareBoolOption{draft}                    % черновой режим (водяной знак)
+\DeclareBoolOption[true]{coloredboxes}       % цветные блоки примечаний
+\ProcessKeyvalOptions*
+
+%%------------------------------------------------------------------------------
+%% 2. БАЗОВЫЕ ПАКЕТЫ КОДИРОВКИ И ЯЗЫКА
+%%------------------------------------------------------------------------------
+\RequirePackage{fontspec}
+\RequirePackage{polyglossia}
+\setdefaultlanguage{russian}
+\setotherlanguage{english}
+
+%% Основные шрифты (требуется наличие в системе)
+\setmainfont{CMU Serif}[
+  Ligatures=TeX,
+  Numbers=OldStyle
+]
+\setsansfont{CMU Sans Serif}[Ligatures=TeX]
+\setmonofont{CMU Typewriter Text}[Ligatures=TeX]
+
+%% Альтернативная конфигурация через babel (если polyglossia недоступна),
+%% раскомментируйте при необходимости:
+% \RequirePackage[english,russian]{babel}
+
+%%------------------------------------------------------------------------------
+%% 3. ГЕОМЕТРИЯ СТРАНИЦЫ
+%%------------------------------------------------------------------------------
+\RequirePackage[
+  a4paper,
+  left=25mm,
+  right=15mm,
+  top=20mm,
+  bottom=20mm,
+  headheight=15pt,
+  headsep=10pt,
+  footskip=12mm
+]{geometry}
+
+%%------------------------------------------------------------------------------
+%% 4. ТИПОГРАФИКА И МЕЖСТРОЧНЫЙ ИНТЕРВАЛ
+%%------------------------------------------------------------------------------
+\RequirePackage{setspace}
+\linespread{\acru@linespread}
+
+\RequirePackage{indentfirst}     % красная строка в первом абзаце раздела
+\setlength{\parindent}{1.25cm}
+\setlength{\parskip}{0.3em}
+\sloppy                          % мягкий перенос строк
+\clubpenalty=10000
+\widowpenalty=10000
+
+%%------------------------------------------------------------------------------
+%% 5. МАТЕМАТИКА И ГРАФИКА
+%%------------------------------------------------------------------------------
+\RequirePackage{amsmath,amssymb,amsthm,mathtools}
+\RequirePackage{graphicx}
+\RequirePackage{xcolor}
+\RequirePackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=blue!60!black,
+  urlcolor=blue!70!black,
+  pdfencoding=auto,
+  unicode=true
+}
+
+%%------------------------------------------------------------------------------
+%% 6. ЦВЕТОВАЯ ПАЛИТРА ПАКЕТА
+%%------------------------------------------------------------------------------
+\definecolor{acru@primary}{HTML}{1F3A5F}     % тёмно-синий (заголовки)
+\definecolor{acru@accent}{HTML}{B85C38}      % терракотовый (акценты)
+\definecolor{acru@note}{HTML}{F4EAD5}        % фон примечаний
+\definecolor{acru@quote}{HTML}{EAF1F8}       % фон цитат
+\definecolor{acru@warning}{HTML}{FBE9E7}     % фон предупреждений
+\definecolor{acru@rule}{HTML}{8E8E8E}        % линии и рамки
+
+%%------------------------------------------------------------------------------
+%% 7. ОФОРМЛЕНИЕ ЗАГОЛОВКОВ (titlesec)
+%%------------------------------------------------------------------------------
+\RequirePackage{titlesec}
+
+%% Глава
+\titleformat{\chapter}[display]
+  {\normalfont\sffamily\Huge\bfseries\color{acru@primary}}
+  {\filright\Large\MakeUppercase{\chaptertitlename}~\thechapter}
+  {1ex}
+  {\titlerule[1pt]\vspace{1ex}\filright}
+\titlespacing*{\chapter}{0pt}{-20pt}{30pt}
+
+%% Раздел
+\titleformat{\section}
+  {\normalfont\sffamily\Large\bfseries\color{acru@primary}}
+  {\thesection}{1em}{}
+\titlespacing*{\section}{0pt}{2.5ex plus 1ex minus .2ex}{1.5ex plus .2ex}
+
+%% Подраздел
+\titleformat{\subsection}
+  {\normalfont\sffamily\large\bfseries\color{acru@primary!85!black}}
+  {\thesubsection}{1em}{}
+\titlespacing*{\subsection}{0pt}{2ex plus 1ex minus .2ex}{1ex plus .2ex}
+
+%% Подподраздел
+\titleformat{\subsubsection}
+  {\normalfont\sffamily\normalsize\bfseries\itshape\color{acru@accent}}
+  {\thesubsubsection}{1em}{}
+
+%%------------------------------------------------------------------------------
+%% 8. КОЛОНТИТУЛЫ (fancyhdr)
+%%------------------------------------------------------------------------------
+\RequirePackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\nouppercase{\leftmark}}
+\fancyhead[LO,RE]{\nouppercase{\rightmark}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{acru@rule}\leaders\hrule height \headrulewidth\hfill}}
+
+%% Стиль первой страницы главы
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+%%------------------------------------------------------------------------------
+%% 9. БЛОКИ ПРИМЕЧАНИЙ, ЦИТАТ И ПРЕДУПРЕЖДЕНИЙ (tcolorbox)
+%%------------------------------------------------------------------------------
+\RequirePackage[most]{tcolorbox}
+\tcbuselibrary{theorems, breakable, skins}
+
+%% --- Примечание ---------------------------------------------------------------
+\newtcolorbox{notebox}[1][]{%
+  enhanced,
+  breakable,
+  colback=acru@note,
+  colframe=acru@accent,
+  boxrule=0.6pt,
+  arc=2mm,
+  left=4mm, right=4mm, top=2mm, bottom=2mm,
+  title=\textbf{Примечание},
+  fonttitle=\sffamily\bfseries,
+  coltitle=white,
+  colbacktitle=acru@accent,
+  attach boxed title to top left={xshift=4mm, yshift=-2mm},
+  boxed title style={
+    colback=acru@accent,
+    boxrule=0pt,
+    arc=1mm,
+    left=2mm, right=2mm, top=0.5mm, bottom=0.5mm
+  },
+  #1
+}
+
+%% --- Цитата -------------------------------------------------------------------
+\newtcolorbox{quotebox}[2][]{%
+  enhanced,
+  breakable,
+  colback=acru@quote,
+  colframe=acru@primary,
+  boxrule=0pt,
+  borderline west={3pt}{0pt}{acru@primary},
+  arc=0mm,
+  left=6mm, right=4mm, top=2mm, bottom=2mm,
+  fontupper=\itshape,
+  after upper={\par\hfill\textnormal{\textbf{—~#2}}},
+  #1
+}
+
+%% --- Предупреждение -----------------------------------------------------------
+\newtcolorbox{warningbox}[1][]{%
+  enhanced,
+  breakable,
+  colback=acru@warning,
+  colframe=red!70!black,
+  boxrule=0.6pt,
+  arc=2mm,
+  left=4mm, right=4mm, top=2mm, bottom=2mm,
+  title=\textbf{Внимание},
+  fonttitle=\sffamily\bfseries,
+  coltitle=white,
+  colbacktitle=red!70!black,
+  attach boxed title to top left={xshift=4mm, yshift=-2mm},
+  boxed title style={
+    colback=red!70!black,
+    boxrule=0pt,
+    arc=1mm,
+    left=2mm, right=2mm, top=0.5mm, bottom=0.5mm
+  },
+  #1
+}
+
+%% --- Определение / Теорема / Доказательство ----------------------------------
+\newtcbtheorem[number within=section]{definition}{Определение}
+  {colback=acru@quote, colframe=acru@primary, fonttitle=\bfseries}{def}
+
+\newtcbtheorem[number within=section]{theorem}{Теорема}
+  {colback=acru@note, colframe=acru@accent, fonttitle=\bfseries}{thm}
+
+%%------------------------------------------------------------------------------
+%% 10. ПОЛЬЗОВАТЕЛЬСКИЕ МАКРОСЫ
+%%------------------------------------------------------------------------------
+
+%% Краткое примечание в одну строку
+\newcommand{\note}[1]{%
+  \par\noindent\textcolor{acru@accent}{\sffamily\bfseries Примечание:}~\textit{#1}\par
+}
+
+%% Выделение ключевого термина
+\newcommand{\keyterm}[1]{\textbf{\textcolor{acru@primary}{#1}}}
+
+%% Эпиграф в начале главы
+\newcommand{\epigraph}[2]{%
+  \begin{flushright}
+    \begin{minipage}{0.6\textwidth}
+      \itshape #1\par
+      \vspace{0.3em}
+      \raggedleft\textnormal{—~#2}
+    \end{minipage}
+  \end{flushright}
+  \vspace{1em}
+}
+
+%% Подпись автора и даты
+\newcommand{\signature}[2]{%
+  \par\vspace{2em}
+  \noindent #1 \hfill #2\par
+}
+
+%% Математические обозначения (часто используемые)
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\dd}{\mathrm{d}}
+\DeclareMathOperator{\supp}{supp}
+\DeclareMathOperator{\sgn}{sgn}
+
+%%------------------------------------------------------------------------------
+%% 11. ВОДЯНОЙ ЗНАК «ЧЕРНОВИК» (опция draft)
+%%------------------------------------------------------------------------------
+\ifacru@draft
+  \RequirePackage{draftwatermark}
+  \SetWatermarkText{ЧЕРНОВИК}
+  \SetWatermarkScale{4}
+  \SetWatermarkColor[gray]{0.92}
+\fi
+
+%%------------------------------------------------------------------------------
+%% 12. ПОДПИСИ ИЛЛЮСТРАЦИЙ И ТАБЛИЦ
+%%------------------------------------------------------------------------------
+\RequirePackage[
+  font=small,
+  labelfont={bf,sf,color=acru@primary},
+  labelsep=period,
+  justification=centering
+]{caption}
+
+%%==============================================================================
+%% Конец файла academic-ru.sty
+%%==============================================================================
+\endinput

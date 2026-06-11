@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-head">
+    <h1>Справочник сроков хранения</h1>
+    <a class="button primary" href="{% url 'knowledge:rule_create' %}">Добавить правило</a>
+</div>
+<form class="search" method="get"><input name="q" value="{{ query }}" placeholder="Поиск по продукту или тегам"><button>Найти</button></form>
+<section class="card">
+    {% for rule in rules %}
+        <div class="row">
+            <div><strong>{{ rule.product_name }}</strong> · {{ rule.shelf_life_days }} дн.<br><span class="muted">{{ rule.category }} {{ rule.storage_conditions }}</span></div>
+            {% if rule.owner_id == user.id %}
+                <div><a href="{% url 'knowledge:rule_update' rule.pk %}">Редактировать</a> · <a href="{% url 'knowledge:rule_delete' rule.pk %}">Удалить</a></div>
+            {% endif %}
+        </div>
+    {% empty %}
+        <p>Правил не найдено.</p>
+    {% endfor %}
+</section>
+{% endblock %}

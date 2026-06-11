@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+    <h1>Импорт текста чека</h1>
+    <form method="post">
+        {% csrf_token %}
+        {% include 'shared/form.html' %}
+        <button class="primary">Разобрать чек</button>
+    </form>
+    <p><a href="{% url 'receipts:import_file' %}">Загрузить файл чека</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,137 @@
+% Стилевой файл для оформления курсовой работы
+% Автор: Калитвин В.А. 
+% kalitvinv@yandex.ru
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{timcw}[Course work style]
+
+% --- Базовые пакеты и параметры ---
+\RequirePackage[T2A]{fontenc}
+\RequirePackage[utf8]{inputenc}
+\RequirePackage[english, russian]{babel}
+\RequirePackage[left=30mm, right=10mm, top=20mm, bottom=25mm]{geometry}
+\RequirePackage{misccorr}    % точка в заголовках, но не в ссылках
+\RequirePackage{indentfirst} % абзацный отступ после заголовков
+\RequirePackage{graphicx}
+
+% --- Заголовки section по центру ---
+\makeatletter
+\renewcommand\section{%
+  \@startsection{section}{1}{\z@}%
+    {-3.5ex \@plus -1ex \@minus -.2ex}%
+    {2.3ex \@plus .2ex}%
+    {\centering\normalfont\Large\bfseries}%
+}
+\makeatother
+
+% --- Точки в списке литературы ---
+\makeatletter
+\renewcommand\@biblabel[1]{#1.}
+\makeatother
+
+% --- Команда титульного листа ---
+\newcommand{\cwtitle}[6]{%
+% #1 - Тема
+% #2 - Группа
+% #3 - ФИО студента
+% #4 - Город и год (например, Москва 2026)
+% #5 - Направление
+% #6 - Направленность
+
+\thispagestyle{empty}
+
+\noindent
+\begin{minipage}[c]{0.2\textwidth}
+  \includegraphics[width=0.8\linewidth]{tim-logo.png}%
+\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.8\textwidth}
+  {\scriptsize
+  \begin{center}
+    \textbf{МИНИСТЕРСТВО СЕЛЬСКОГО ХОЗЯЙСТВА РОССИЙСКОЙ ФЕДЕРАЦИИ}\\[0.4cm]
+    ФЕДЕРАЛЬНОЕ ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ ОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ ВЫСШЕГО ОБРАЗОВАНИЯ \\[0.2cm]
+    \textbf{«РОССИЙСКИЙ ГОСУДАРСТВЕННЫЙ АГРАРНЫЙ УНИВЕРСИТЕТ  --\\
+    МСХА имени К.\,А.~ТИМИРЯЗЕВА}\\[0.2cm]
+    \textbf{(ФГБОУ ВО РГАУ -- МСХА имени К.\,А.~Тимирязева)}
+  \end{center}
+  }
+\end{minipage}
+
+\bigskip
+\noindent\rule{\textwidth}{0.4pt}\\[-2.3ex]
+\rule{\textwidth}{0.4pt}
+
+{\small
+\begin{center}
+Институт экономики и управления\\[0.1cm]
+Кафедра статистики и кибернетики\\[0.5cm]
+Направление: #5\\
+Направленность:\\
+#6\\[0.8cm]
+\end{center}
+}
+
+{\Large
+\begin{center}
+\textbf{КУРСОВОЙ ПРОЕКТ}
+\end{center}
+}
+
+на тему: «#1».\\[0.5cm]
+
+{\small
+\hfill
+\begin{minipage}[l]{0.5\textwidth}
+Выполнил:\\
+Студент 1 курса группы #2\\
+#3\\[1ex]
+
+Дата регистрации КП\\[1ex]
+на кафедре: \rule{4cm}{0.4pt}\\[0.2cm]
+
+Допущен к защите\\[0.2cm]
+Руководитель:\\[0.3cm]
+\rule{8cm}{0.4pt}\\
+\hspace*{1cm}{\footnotesize учёная степень, учёное звание, ФИО}\\[0.5cm]
+
+Члены комиссии:\\[0.2cm]
+\rule{6cm}{0.4pt}\hfill\rule{2cm}{0.4pt}\\[-2pt]
+{\footnotesize учёная степень, учёное звание, ФИО}\hfill{\footnotesize подпись}\\[0.2cm]
+\rule{6cm}{0.4pt}\hfill\rule{2cm}{0.4pt}\\[-2pt]
+{\footnotesize учёная степень, учёное звание, ФИО}\hfill{\footnotesize подпись}\\[0.2cm]
+\rule{6cm}{0.4pt}\hfill\rule{2cm}{0.4pt}\\[-2pt]
+{\footnotesize учёная степень, учёное звание, ФИО}\hfill{\footnotesize подпись}\\[0.5cm]
+
+Оценка \rule{6cm}{0.4pt}\\[0.4cm]
+Дата защиты \rule{5cm}{0.4pt}
+\end{minipage}
+}
+
+\vskip 1.0cm
+\begin{center}
+#4
+\end{center}
+
+\newpage
+}
+
+% --- Оформление списка литературы по центру ---
+\newcommand{\centeredrefname}{%
+  \renewcommand\refname{\centering Список использованных источников}%
+}
+
+% --- Удобные команды для Введения, Заключения, Приложений ---
+\newcommand{\intro}{%
+  \addcontentsline{toc}{section}{Введение}%
+  \section*{Введение}%
+}
+
+\newcommand{\conclusion}{%
+  \addcontentsline{toc}{section}{Заключение}%
+  \section*{Заключение}%
+}
+
+\newcommand{\applications}{%
+  \addcontentsline{toc}{section}{Приложения}%
+  \section*{Приложения}%
+}

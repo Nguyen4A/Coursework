@@ -1,0 +1,9 @@
+{% include 'shared/form_errors.html' %}
+{% for field in form %}
+    <label>
+        <span>{{ field.label }}</span>
+        {{ field }}
+        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+        {% for error in field.errors %}<small class="error">{{ error }}</small>{% endfor %}
+    </label>
+{% endfor %}

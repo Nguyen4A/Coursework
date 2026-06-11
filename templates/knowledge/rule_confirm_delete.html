@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card narrow">
+    <h1>Удалить правило?</h1>
+    <p>{{ rule.product_name }}</p>
+    <form method="post">{% csrf_token %}<button class="danger">Удалить</button> <a class="button" href="{% url 'knowledge:rule_list' %}">Отмена</a></form>
+</section>
+{% endblock %}

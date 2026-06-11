@@ -1,0 +1,170 @@
+% Стилевой файл для оформления курсовой работы
+% Автор: Калитвин В.А. 
+% kalitvinv@yandex.ru
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{timcw}[Course work style]
+
+% --- Базовые пакеты и параметры ---
+\RequirePackage[english, russian]{babel}
+\RequirePackage{fontspec}
+
+
+\RequirePackage[left=25mm, right=15mm, top=20mm, bottom=20mm]{geometry}
+\RequirePackage{misccorr}    % точка в заголовках, но не в ссылках
+\RequirePackage{indentfirst} % абзацный отступ после заголовков
+\RequirePackage{graphicx}
+\usepackage{setspace}
+\onehalfspacing % полуторный интервал во всём документе
+
+\usepackage{titlesec}
+
+\renewcommand{\chaptername}{Глава} % имя для текста и содержания
+% Заголовок главы: 14pt, межстрочный 16pt, жирный
+\titleformat{\chapter}
+  {\fontsize{16pt}{16pt}\bfseries\centering} % оформление шрифта
+  {\chaptername\ \thechapter.}                    % как выводить номер
+  {1em}                            % отступ между номером и текстом
+  {}                               % дополнительный код перед заголовком
+
+% Глава в содержании: 14pt, межстрочный 16pt, жирный
+%\renewcommand{\thechapter}{\arabic{chapter}}
+%\renewcommand{\chaptermark}[1]{\markboth{Глава \thechapter. #1}{}}
+
+\usepackage{tocloft}
+
+% "Глава 1." перед названием в оглавлении
+\renewcommand{\cftchappresnum}{Глава~} % префикс
+%\renewcommand{\cftchapaftersnum}{.\ }  % точка после номера
+
+% Подобрать ширину поля под "Глава 10."
+\newlength{\tocchaplen}
+\settowidth{\tocchaplen}{Глава~100.\ \ } % примерный максимум
+\setlength{\cftchapnumwidth}{\tocchaplen}
+
+\renewcommand{\contentsname}{Содержание}
+% Шрифт заголовка оглавления:
+\renewcommand{\cfttoctitlefont}{\Large\bfseries\centering} % размер + жирность
+\renewcommand{\cftaftertoctitle}{\hfill}         % выравнивание по центру
+
+% --- Заголовки section по центру ---
+\makeatletter
+\renewcommand\section{%
+  \@startsection{section}{1}{\z@}%
+    {-3.5ex \@plus -1ex \@minus -.2ex}%
+    {2.3ex \@plus .2ex}%
+    {\centering\bfseries}%
+}
+\makeatother
+
+% --- Точки в списке литературы ---
+\makeatletter
+\renewcommand\@biblabel[1]{#1.}
+\makeatother
+
+% --- Команда титульного листа ---
+\newcommand{\cwtitle}[6]{%
+% #1 - Тема
+% #2 - Группа
+% #3 - ФИО студента
+% #4 - Город и год (например, Москва 2026)
+% #5 - Направление
+% #6 - Направленность
+
+\thispagestyle{empty}
+
+\noindent
+\begin{minipage}[c]{0.12\textwidth}
+  \includegraphics[width=0.96\linewidth]{tim-logo.png}%
+\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.88\textwidth}
+  {\scriptsize
+  \begin{center}
+    \textbf{МИНИСТЕРСТВО СЕЛЬСКОГО ХОЗЯЙСТВА РОССИЙСКОЙ ФЕДЕРАЦИИ}\\[0.2cm]
+    ФЕДЕРАЛЬНОЕ ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ ОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ ВЫСШЕГО ОБРАЗОВАНИЯ \\[0.2cm]
+    \textbf{«РОССИЙСКИЙ ГОСУДАРСТВЕННЫЙ АГРАРНЫЙ УНИВЕРСИТЕТ  --
+    МСХА имени К.\,А.~ТИМИРЯЗЕВА}\\[0.2cm]
+    \textbf{(ФГБОУ ВО РГАУ -- МСХА имени К.\,А.~Тимирязева)}
+  \end{center}
+  }
+\end{minipage}
+
+\bigskip
+\noindent\rule{\textwidth}{0.4pt}\\[-2.0ex]
+\rule{\textwidth}{0.4pt}
+
+{\small
+\begin{center}
+Институт экономики и управления\\[0.1cm]
+Кафедра статистики и кибернетики\\[0.5cm]
+Направление: #5\\
+Направленность:\\
+#6\\[0.8cm]
+\end{center}
+}
+
+{\Large
+\begin{center}
+\textbf{КУРСОВОЙ ПРОЕКТ}
+\end{center}
+}
+
+на тему: «#1».\\[1.0cm]
+
+{\small
+\hfill
+\begin{minipage}[l]{0.5\textwidth}
+Выполнил:\\
+Студент 1 курса группы #2\\
+#3\\[1ex]
+
+Дата регистрации КП\\[1ex]
+на кафедре: \rule{4cm}{0.4pt}\\[0.2cm]
+
+Допущен к защите\\[0.2cm]
+Руководитель:\\[0.3cm]
+\rule{8cm}{0.4pt}\\
+\hspace*{1cm}{\footnotesize учёная степень, учёное звание, ФИО}\\[0.5cm]
+
+Члены комиссии:\\[0.2cm]
+\rule{6cm}{0.4pt}\hfill\rule{2cm}{0.4pt}\\[-2pt]
+{\footnotesize учёная степень, учёное звание, ФИО}\hfill{\footnotesize подпись}\\[0.2cm]
+\rule{6cm}{0.4pt}\hfill\rule{2cm}{0.4pt}\\[-2pt]
+{\footnotesize учёная степень, учёное звание, ФИО}\hfill{\footnotesize подпись}\\[0.2cm]
+\rule{6cm}{0.4pt}\hfill\rule{2cm}{0.4pt}\\[-2pt]
+{\footnotesize учёная степень, учёное звание, ФИО}\hfill{\footnotesize подпись}\\[0.5cm]
+
+Оценка \rule{6cm}{0.4pt}\\[0.4cm]
+Дата защиты \rule{5cm}{0.4pt}
+\end{minipage}
+}
+
+\vskip 1.0cm
+\begin{center}
+#4
+\end{center}
+
+\newpage
+}
+
+% --- Оформление списка литературы по центру ---
+\newcommand{\centeredrefname}{%
+  \renewcommand\bibname{\centering Список использованных источников}%
+}
+
+% --- Удобные команды для Введения, Заключения, Приложений ---
+\newcommand{\intro}{%
+  \addcontentsline{toc}{chapter}{Введение}%
+  \chapter*{Введение}%
+}
+
+\newcommand{\conclusion}{%
+  \addcontentsline{toc}{chapter}{Заключение}%
+  \chapter*{Заключение}%
+}
+
+\newcommand{\applications}{%
+  \addcontentsline{toc}{chapter}{Приложения}%
+  \chapter*{Приложения}%
+}
