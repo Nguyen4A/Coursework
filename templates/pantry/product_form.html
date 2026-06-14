@@ -9,6 +9,20 @@
         <button class="primary">Сохранить</button>
         <a class="button" href="{% url 'pantry:product_list' %}">Отмена</a>
     </form>
+    {% if product %}
+        <div class="usage-actions">
+            <form method="post" action="{% url 'pantry:product_mark_used' product.pk %}" class="inline">
+                {% csrf_token %}
+                <button>Использовал</button>
+            </form>
+            <form method="post" action="{% url 'pantry:product_mark_wasted' product.pk %}" class="inline">
+                {% csrf_token %}
+                <button class="danger">Выкинул</button>
+            </form>
+            <a class="button" href="{% url 'pantry:product_delete' product.pk %}">Удалить</a>
+        </div>
+        <p class="muted">Удаление без учета в статистике доступно на следующем шаге.</p>
+    {% endif %}
 </section>
 {{ form.category_suggestions|json_script:"category-suggestions" }}
 <script>

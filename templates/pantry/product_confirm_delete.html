@@ -1,8 +1,26 @@
 {% extends 'base.html' %}
 {% block content %}
 <section class="card narrow">
-    <h1>Удалить продукт?</h1>
+    <h1>Что произошло с продуктом?</h1>
     <p>{{ product.name }}</p>
-    <form method="post">{% csrf_token %}<button class="danger">Удалить</button> <a class="button" href="{% url 'pantry:product_list' %}">Отмена</a></form>
+    <p class="muted">Если продукт использован или выброшен, это попадет в статистику.</p>
+    <div class="usage-actions">
+        <form method="post" class="inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="used">
+            <button>Использовал</button>
+        </form>
+        <form method="post" class="inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="wasted">
+            <button class="danger">Выкинул</button>
+        </form>
+    </div>
+    <form method="post" class="delete-without-stats">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="delete">
+        <button>Удалить без учета в статистике</button>
+        <a class="button" href="{% url 'pantry:product_list' %}">Отмена</a>
+    </form>
 </section>
 {% endblock %}

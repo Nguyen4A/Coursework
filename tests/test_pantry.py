@@ -44,6 +44,57 @@ class PantryTests(TestCase):
         self.assertIn("заморозка", suggestions)
         self.assertContains(response, "category-suggestions")
 
+    def test_edit_product_page_has_usage_actions(self):
+        product = Product.objects.create(
+            user=self.user,
+            name="Йогурт",
+            quantity=1,
+            unit="pcs",
+            purchase_date=timezone.localdate(),
+            shelf_life_days=3,
+        )
+
+        response = self.client.get(reverse("pantry:product_update", args=[product.pk]))
+
+        self.assertContains(response, "Использовал")
+        self.assertContains(response, "Выкинул")
+        self.assertContains(response, reverse("pantry:product_mark_used", args=[product.pk]))
+        self.assertContains(response, reverse("pantry:product_mark_wasted", args=[product.pk]))
+
+    def test_delete_page_wasted_action_creates_usage_event(self):
+        product = Product.objects.create(
+            user=self.user,
+            name="Кефир",
+            quantity=1,
+            unit="pcs",
+            purchase_date=timezone.localdate() - timedelta(days=5),
+            shelf_life_days=1,
+        )
+
+        response = self.client.post(reverse("pantry:product_delete", args=[product.pk]), {"action": "wasted"})
+
+        self.assertRedirects(response, reverse("pantry:product_list"))
+        self.assertFalse(Product.objects.filter(pk=product.pk).exists())
+        event = ProductUsageEvent.objects.get(user=self.user)
+        self.assertEqual(event.action, ProductUsageEvent.ACTION_WASTED)
+        self.assertTrue(event.wasted_expired)
+
+    def test_delete_without_stats_keeps_usage_history_empty(self):
+        product = Product.objects.create(
+            user=self.user,
+            name="Ошибочная запись",
+            quantity=1,
+            unit="pcs",
+            purchase_date=timezone.localdate(),
+            shelf_life_days=3,
+        )
+
+        response = self.client.post(reverse("pantry:product_delete", args=[product.pk]), {"action": "delete"})
+
+        self.assertRedirects(response, reverse("pantry:product_list"))
+        self.assertFalse(Product.objects.filter(pk=product.pk).exists())
+        self.assertFalse(ProductUsageEvent.objects.filter(user=self.user).exists())
+
     def test_eat_first_sort_prioritizes_expiring_and_old_products(self):
         today = timezone.localdate()
         fresh = Product.objects.create(user=self.user, name="Рис", quantity=1, unit="pcs", purchase_date=today, shelf_life_days=100)

@@ -64,15 +64,23 @@ def product_update(request, pk):
             return redirect("pantry:product_list")
     else:
         form = ProductForm(instance=product)
-    return render(request, "pantry/product_form.html", {"form": form, "title": "Редактировать продукт"})
+    return render(request, "pantry/product_form.html", {"form": form, "title": "Редактировать продукт", "product": product})
 
 
 @login_required
 def product_delete(request, pk):
     product = get_object_or_404(Product, pk=pk, user=request.user)
     if request.method == "POST":
-        product.delete()
-        messages.success(request, "Продукт удален.")
+        action = request.POST.get("action", "delete")
+        if action == "used":
+            ProductUsageService().mark(product, "used")
+            messages.success(request, "Продукт отмечен как использованный.")
+        elif action == "wasted":
+            ProductUsageService().mark(product, "wasted")
+            messages.success(request, "Продукт отмечен как выброшенный.")
+        else:
+            product.delete()
+            messages.success(request, "Продукт удален без учета в статистике.")
         return redirect("pantry:product_list")
     return render(request, "pantry/product_confirm_delete.html", {"product": product})
 
