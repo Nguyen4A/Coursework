@@ -7,7 +7,30 @@
     <h2>Позиции</h2>
     <ul>
         {% for item in receipt.items.all %}
-            <li>{{ item.raw_name }} · {{ item.quantity }} {{ item.unit }} · {{ item.category }}{% if item.created_product %} → продукт создан{% endif %}</li>
+            <li>
+                {{ item.raw_name }} · {{ item.quantity }} {{ item.unit }} · {{ item.category|default:'без категории' }}{% if item.created_product %} → продукт создан{% endif %}
+                {% if not item.is_food and item.category == 'не определено' %}
+                    <form method="post" action="{% url 'receipts:item_review' item.pk %}" class="review-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="food">
+                        <label>
+                            <span>Ключевое слово</span>
+                            <input name="keyword" value="{{ item.normalized_name }}">
+                        </label>
+                        <label>
+                            <span>Категория</span>
+                            <input name="category" placeholder="Например: молочные продукты">
+                        </label>
+                        <button class="primary">Это продукт</button>
+                    </form>
+                    <form method="post" action="{% url 'receipts:item_review' item.pk %}" class="inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="non_food">
+                        <input type="hidden" name="keyword" value="{{ item.normalized_name }}">
+                        <button>Не продукт</button>
+                    </form>
+                {% endif %}
+            </li>
         {% empty %}
             <li>Позиции пока не распознаны.</li>
         {% endfor %}

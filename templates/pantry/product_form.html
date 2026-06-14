@@ -10,4 +10,55 @@
         <a class="button" href="{% url 'pantry:product_list' %}">Отмена</a>
     </form>
 </section>
+{{ form.category_suggestions|json_script:"category-suggestions" }}
+<script>
+    (() => {
+        const input = document.querySelector("[data-category-autocomplete='1']");
+        const source = document.getElementById("category-suggestions");
+        if (!input || !source) return;
+
+        const suggestions = JSON.parse(source.textContent);
+        const list = document.createElement("div");
+        list.className = "autocomplete-list";
+        list.hidden = true;
+        input.insertAdjacentElement("afterend", list);
+
+        const normalize = (value) => value.trim().toLocaleLowerCase("ru-RU").replaceAll("ё", "е");
+        const hide = () => {
+            list.hidden = true;
+            list.innerHTML = "";
+        };
+        const render = () => {
+            const query = normalize(input.value);
+            if (!query) {
+                hide();
+                return;
+            }
+            const matches = suggestions
+                .filter((name) => normalize(name).includes(query))
+                .slice(0, 8);
+            if (!matches.length) {
+                hide();
+                return;
+            }
+            list.innerHTML = "";
+            for (const name of matches) {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.textContent = name;
+                button.addEventListener("mousedown", (event) => {
+                    event.preventDefault();
+                    input.value = name;
+                    hide();
+                });
+                list.appendChild(button);
+            }
+            list.hidden = false;
+        };
+
+        input.addEventListener("input", render);
+        input.addEventListener("focus", render);
+        input.addEventListener("blur", () => window.setTimeout(hide, 120));
+    })();
+</script>
 {% endblock %}

@@ -18,6 +18,9 @@ label { display:block; margin:14px 0; }
 label span { display:block; font-weight:600; margin-bottom:6px; }
 input, textarea, select { width:100%; border:1px solid #d1d5db; border-radius:10px; padding:10px; font:inherit; }
 input[type=checkbox] { width:auto; }
+.autocomplete-list { margin-top:-6px; border:1px solid #d1d5db; border-radius:10px; background:white; box-shadow:0 12px 24px rgba(15,23,42,.08); overflow:hidden; }
+.autocomplete-list button { display:block; width:100%; border:0; border-radius:0; text-align:left; padding:10px 12px; }
+.autocomplete-list button:hover { background:#eef2ff; }
 .password-toggle { margin-top:8px; }
 small, .muted { color:var(--muted); }
 .error, .form-errors { color:var(--red); }
@@ -38,3 +41,5 @@ small, .muted { color:var(--muted); }
 .unread { font-weight:700; }
 .search { display:flex; gap:10px; margin-bottom:16px; }
 .empty { color:var(--muted); }
+.review-form { margin:12px 0; padding:12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb; }
+.review-form label { margin:8px 0; }

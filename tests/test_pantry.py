@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from pantry.models import Product
+from pantry.models import Product, ProductCategory
 
 
 class PantryTests(TestCase):
@@ -32,3 +32,13 @@ class PantryTests(TestCase):
         self.assertRedirects(response, reverse("pantry:product_list"))
         product = Product.objects.get(user=self.user)
         self.assertEqual(product.expiration_date, today + timedelta(days=5))
+
+    def test_product_form_has_category_suggestions(self):
+        ProductCategory.objects.create(name="заморозка")
+
+        response = self.client.get(reverse("pantry:product_create"))
+
+        suggestions = response.context["form"].category_suggestions
+        self.assertIn("бакалея", suggestions)
+        self.assertIn("заморозка", suggestions)
+        self.assertContains(response, "category-suggestions")

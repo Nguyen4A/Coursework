@@ -2,6 +2,37 @@ from django.conf import settings
 from django.db import models
 
 
+class ProductKeyword(models.Model):
+    SOURCE_SYSTEM = "system"
+    SOURCE_USER = "user"
+    SOURCE_CHOICES = [(SOURCE_SYSTEM, "Системное"), (SOURCE_USER, "Пользовательское")]
+
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="product_keywords")
+    word = models.CharField("Ключевое слово", max_length=120)
+    category = models.CharField("Категория", max_length=120, blank=True)
+    is_food = models.BooleanField("Это продукт", default=True)
+    source = models.CharField("Источник", max_length=20, choices=SOURCE_CHOICES, default=SOURCE_SYSTEM)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("word",)
+        unique_together = ("owner", "word")
+        indexes = [
+            models.Index(fields=("owner", "word"), name="receipts_pr_owner_i_533b9c_idx"),
+            models.Index(fields=("is_food", "word"), name="receipts_pr_is_food_4c4b17_idx"),
+        ]
+        verbose_name = "Ключевое слово продукта"
+        verbose_name_plural = "Ключевые слова продуктов"
+
+    def save(self, *args, **kwargs):
+        self.word = self.word.strip().lower().replace("ё", "е")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        marker = "еда" if self.is_food else "не еда"
+        return f"{self.word} ({marker})"
+
+
 class Receipt(models.Model):
     SOURCE_TEXT = "text"
     SOURCE_FILE = "file"

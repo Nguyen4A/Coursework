@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import EmailImportSource, ProcessingLog, Receipt, ReceiptItem
+from .models import EmailImportSource, ProcessingLog, ProductKeyword, Receipt, ReceiptItem
 
 
 class ReceiptItemInline(admin.TabularInline):
@@ -21,6 +21,13 @@ class ReceiptItemAdmin(admin.ModelAdmin):
     list_display = ("normalized_name", "receipt", "quantity", "unit", "is_food", "category", "created_product")
     list_filter = ("is_food", "category")
     search_fields = ("raw_name", "normalized_name")
+
+
+@admin.register(ProductKeyword)
+class ProductKeywordAdmin(admin.ModelAdmin):
+    list_display = ("word", "category", "is_food", "source", "owner", "created_at")
+    list_filter = ("is_food", "source", "category")
+    search_fields = ("word", "category", "owner__username")
 
 
 @admin.register(EmailImportSource)

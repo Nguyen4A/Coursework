@@ -2,8 +2,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import EmailImportSourceForm, ReceiptFileForm, ReceiptManualTextForm, ReceiptTextForm
-from .models import EmailImportSource, Receipt
+from .forms import EmailImportSourceForm, ReceiptFileForm, ReceiptItemReviewForm, ReceiptManualTextForm, ReceiptTextForm
+from .models import EmailImportSource, Receipt, ReceiptItem
 from .services import EmailImportService, OCRService, ReceiptImportService
 
 
@@ -50,6 +50,25 @@ def detail(request, pk):
     else:
         form = ReceiptManualTextForm(initial={"text": receipt.original_text})
     return render(request, "receipts/detail.html", {"receipt": receipt, "form": form})
+
+
+@login_required
+def review_item(request, pk):
+    item = get_object_or_404(ReceiptItem.objects.select_related("receipt"), pk=pk, receipt__user=request.user)
+    if request.method != "POST":
+        return redirect("receipts:detail", pk=item.receipt_id)
+    form = ReceiptItemReviewForm(request.POST)
+    if form.is_valid():
+        importer = ReceiptImportService(request.user)
+        if form.cleaned_data["action"] == ReceiptItemReviewForm.ACTION_FOOD:
+            importer.confirm_item_as_food(item, form.cleaned_data["category"], form.cleaned_data["keyword"])
+            messages.success(request, "Позиция добавлена как продукт, правило сохранено.")
+        else:
+            importer.confirm_item_as_non_food(item, form.cleaned_data["keyword"])
+            messages.success(request, "Позиция отмечена как непищевая, правило сохранено.")
+    else:
+        messages.error(request, "Не удалось сохранить проверку позиции.")
+    return redirect("receipts:detail", pk=item.receipt_id)
 
 
 @login_required

@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from pantry.models import Product
-from receipts.models import EmailImportSource, ProcessingLog
+from receipts.models import EmailImportSource, ProcessingLog, ProductKeyword, ReceiptItem
 from receipts.services import EmailImportService, OCRService, ReceiptImportService, ReceiptParser
 
 
@@ -39,6 +39,34 @@ class ReceiptTests(TestCase):
 
         self.assertNotIn("\x00", receipt.original_text)
         self.assertTrue(Product.objects.filter(user=self.user, name__icontains="Хлеб").exists())
+
+    def test_import_text_keeps_unknown_items_for_review(self):
+        receipt = ReceiptImportService(self.user).import_text("Матча латте 1 шт 150.00")
+
+        self.assertEqual(receipt.status, "needs_review")
+        item = receipt.items.get()
+        self.assertFalse(item.is_food)
+        self.assertEqual(item.category, "не определено")
+        self.assertFalse(Product.objects.filter(user=self.user, name__icontains="Матча").exists())
+
+    def test_review_unknown_item_as_food_learns_keyword(self):
+        self.client.force_login(self.user)
+        receipt = ReceiptImportService(self.user).import_text("Матча латте 1 шт 150.00")
+        item = ReceiptItem.objects.get(receipt=receipt)
+
+        response = self.client.post(
+            reverse("receipts:item_review", args=[item.pk]),
+            {"action": "food", "keyword": "матча", "category": "напитки"},
+        )
+
+        self.assertRedirects(response, reverse("receipts:detail", args=[receipt.pk]))
+        item.refresh_from_db()
+        receipt.refresh_from_db()
+        self.assertTrue(item.is_food)
+        self.assertEqual(item.category, "напитки")
+        self.assertEqual(receipt.status, "processed")
+        self.assertTrue(Product.objects.filter(user=self.user, name__icontains="Матча").exists())
+        self.assertTrue(ProductKeyword.objects.filter(owner=self.user, word="матча", category="напитки", is_food=True).exists())
 
     @override_settings(OCR_API_URL="https://api.example.test/parse/image", OCR_API_KEY="test-key")
     @patch("receipts.services.urlrequest.urlopen")

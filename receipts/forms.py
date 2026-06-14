@@ -21,6 +21,21 @@ class ReceiptManualTextForm(forms.Form):
     text = forms.CharField(label="Распознанный текст", widget=forms.Textarea(attrs={"rows": 10}))
 
 
+class ReceiptItemReviewForm(forms.Form):
+    ACTION_FOOD = "food"
+    ACTION_NON_FOOD = "non_food"
+
+    action = forms.ChoiceField(choices=[(ACTION_FOOD, "Это продукт"), (ACTION_NON_FOOD, "Не продукт")])
+    keyword = forms.CharField(label="Ключевое слово", max_length=120, required=False)
+    category = forms.CharField(label="Категория", max_length=120, required=False)
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("action") == self.ACTION_FOOD and not cleaned.get("category", "").strip():
+            self.add_error("category", "Укажите категорию продукта.")
+        return cleaned
+
+
 class EmailImportSourceForm(forms.ModelForm):
     class Meta:
         model = EmailImportSource

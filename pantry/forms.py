@@ -4,6 +4,20 @@ from .models import Product, ProductCategory
 
 
 class ProductForm(forms.ModelForm):
+    BASE_CATEGORIES = [
+        "молочные продукты",
+        "хлеб",
+        "мясо",
+        "рыба",
+        "яйца",
+        "фрукты",
+        "овощи",
+        "крупы",
+        "бакалея",
+        "напитки",
+        "Продукты",
+    ]
+
     category_name = forms.CharField(label="Категория", max_length=120, required=False)
 
     class Meta:
@@ -27,6 +41,15 @@ class ProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["category_name"].widget.attrs.update(
+            {
+                "autocomplete": "off",
+                "data-category-autocomplete": "1",
+                "placeholder": "Начните вводить, например: бакалея",
+            }
+        )
+        existing_categories = ProductCategory.objects.values_list("name", flat=True)
+        self.category_suggestions = sorted({*self.BASE_CATEGORIES, *existing_categories}, key=str.casefold)
         if self.instance and self.instance.category:
             self.fields["category_name"].initial = self.instance.category.name
 

@@ -11,13 +11,14 @@ from pathlib import Path
 from urllib import request as urlrequest
 
 from django.conf import settings
-from django.db import IntegrityError
+from django.db import IntegrityError, OperationalError, ProgrammingError
+from django.db.models import Q
 from django.utils import timezone
 
 from knowledge.services import ShelfLifeService
 from pantry.models import Product, ProductCategory
 
-from .models import ProcessingLog, Receipt, ReceiptItem
+from .models import ProcessingLog, ProductKeyword, Receipt, ReceiptItem
 
 
 @dataclass
@@ -25,45 +26,139 @@ class ParsedItem:
     name: str
     quantity: Decimal = Decimal("1")
     unit: str = "pcs"
+    is_food: bool = True
+    category: str = ""
+    needs_review: bool = False
 
 
 class FoodClassifier:
-    FOOD_WORDS = {
+    UNKNOWN_CATEGORY = "не определено"
+    NON_FOOD_CATEGORY = "не пищевое"
+    FALLBACK_FOOD_WORDS = {
         "молоко": "молочные продукты",
         "кефир": "молочные продукты",
         "сыр": "молочные продукты",
         "йогурт": "молочные продукты",
+        "творог": "молочные продукты",
+        "сметана": "молочные продукты",
+        "сливки": "молочные продукты",
+        "ряженка": "молочные продукты",
+        "айран": "молочные продукты",
         "хлеб": "хлеб",
         "батон": "хлеб",
         "курица": "мясо",
         "говядина": "мясо",
+        "свинина": "мясо",
+        "индейка": "мясо",
+        "фарш": "мясо",
+        "колбаса": "мясо",
+        "сосиска": "мясо",
         "рыба": "рыба",
+        "лосось": "рыба",
+        "тунец": "рыба",
+        "креветка": "рыба",
         "яйцо": "яйца",
         "яблоко": "фрукты",
         "банан": "фрукты",
+        "апельсин": "фрукты",
+        "груша": "фрукты",
+        "виноград": "фрукты",
+        "лимон": "фрукты",
         "картофель": "овощи",
         "томат": "овощи",
+        "помидор": "овощи",
         "огурец": "овощи",
+        "морковь": "овощи",
+        "лук": "овощи",
+        "капуста": "овощи",
+        "перец": "овощи",
+        "свекла": "овощи",
         "рис": "крупы",
         "гречка": "крупы",
+        "овсянка": "крупы",
+        "пшено": "крупы",
         "макароны": "бакалея",
         "масло": "бакалея",
         "орех": "бакалея",
         "сухофрукт": "бакалея",
         "коктейль": "бакалея",
+        "мука": "бакалея",
+        "сахар": "бакалея",
+        "соль": "бакалея",
+        "чай": "бакалея",
+        "кофе": "бакалея",
         "сок": "напитки",
         "вода": "напитки",
+        "морс": "напитки",
+        "компот": "напитки",
     }
-    NON_FOOD_WORDS = {"пакет", "салфетки", "шампунь", "мыло", "гель", "зубная", "порошок", "батарейка", "лампа"}
+    FALLBACK_NON_FOOD_WORDS = {
+        "пакет",
+        "салфетки",
+        "шампунь",
+        "мыло",
+        "гель",
+        "зубная",
+        "порошок",
+        "батарейка",
+        "лампа",
+        "бумага",
+        "крем",
+        "дезодорант",
+    }
+
+    def __init__(self, user=None):
+        self.user = user
+        self._keywords = None
 
     def classify(self, name: str) -> tuple[bool, str]:
-        lowered = name.lower()
-        if any(word in lowered for word in self.NON_FOOD_WORDS):
-            return False, "не пищевое"
-        for word, category in self.FOOD_WORDS.items():
-            if word in lowered:
-                return True, category
-        return False, "не определено"
+        lowered = self.normalize(name)
+        keywords = self._load_keywords()
+        if any(keyword.word in lowered for keyword in keywords if not keyword.is_food):
+            return False, self.NON_FOOD_CATEGORY
+        for keyword in keywords:
+            if keyword.is_food and keyword.word in lowered:
+                return True, keyword.category
+        return False, self.UNKNOWN_CATEGORY
+
+    @classmethod
+    def normalize(cls, value: str) -> str:
+        return re.sub(r"\s+", " ", value.strip().lower().replace("ё", "е"))
+
+    @classmethod
+    def learn(cls, user, word: str, category: str = "", is_food: bool = True) -> ProductKeyword:
+        keyword, _ = ProductKeyword.objects.update_or_create(
+            owner=user,
+            word=cls.normalize(word),
+            defaults={"category": category.strip(), "is_food": is_food, "source": ProductKeyword.SOURCE_USER},
+        )
+        return keyword
+
+    def _load_keywords(self) -> list[ProductKeyword]:
+        if self._keywords is not None:
+            return self._keywords
+        try:
+            query = Q(owner__isnull=True)
+            if self.user and getattr(self.user, "is_authenticated", False):
+                query |= Q(owner=self.user)
+            keywords = list(ProductKeyword.objects.filter(query))
+        except (OperationalError, ProgrammingError):
+            keywords = []
+        if not keywords:
+            keywords = self._fallback_keywords()
+        self._keywords = sorted(keywords, key=lambda item: (item.owner_id is not None, len(item.word)), reverse=True)
+        return self._keywords
+
+    def _fallback_keywords(self) -> list[ProductKeyword]:
+        keywords = [
+            ProductKeyword(word=word, category=category, is_food=True, source=ProductKeyword.SOURCE_SYSTEM)
+            for word, category in self.FALLBACK_FOOD_WORDS.items()
+        ]
+        keywords.extend(
+            ProductKeyword(word=word, category=self.NON_FOOD_CATEGORY, is_food=False, source=ProductKeyword.SOURCE_SYSTEM)
+            for word in self.FALLBACK_NON_FOOD_WORDS
+        )
+        return keywords
 
 
 class ReceiptParser:
@@ -72,7 +167,7 @@ class ReceiptParser:
     def __init__(self, classifier=None):
         self.classifier = classifier or FoodClassifier()
 
-    def parse(self, text: str) -> list[ParsedItem]:
+    def parse(self, text: str, include_unknown: bool = False) -> list[ParsedItem]:
         items = []
         for raw_line in text.splitlines():
             line = raw_line.strip(" -\t")
@@ -86,16 +181,18 @@ class ReceiptParser:
             name = self._clean_name(match.group("name"))
             if not name or len(name) < 3:
                 continue
-            is_food, _ = self.classifier.classify(name)
-            if not is_food:
+            is_food, category = self.classifier.classify(name)
+            if not is_food and category != FoodClassifier.UNKNOWN_CATEGORY:
+                continue
+            if not is_food and not include_unknown:
                 continue
             qty = Decimal((match.group("qty") or "1").replace(",", "."))
             unit = self._normalize_unit(match.group("unit") or "pcs")
-            items.append(ParsedItem(name=name, quantity=qty, unit=unit))
+            items.append(ParsedItem(name=name, quantity=qty, unit=unit, is_food=is_food, category=category, needs_review=not is_food))
         return items
 
     def _is_noise(self, line: str) -> bool:
-        lowered = line.lower()
+        lowered = FoodClassifier.normalize(line)
         return any(token in lowered for token in ["итого", "кассир", "инн", "фн", "чек", "скидка", "налог", "оплата", "карта"])
 
     def _clean_name(self, value: str) -> str:
@@ -171,7 +268,7 @@ class OCRService:
 class ReceiptImportService:
     def __init__(self, user):
         self.user = user
-        self.classifier = FoodClassifier()
+        self.classifier = FoodClassifier(user)
         self.parser = ReceiptParser(self.classifier)
         self.shelf_life = ShelfLifeService(user)
 
@@ -181,22 +278,48 @@ class ReceiptImportService:
         receipt.original_text = text
         receipt.status = "processed"
         receipt.save()
-        for parsed in self.parser.parse(text):
-            is_food, category_name = self.classifier.classify(parsed.name)
+        needs_review = False
+        for parsed in self.parser.parse(text, include_unknown=True):
             item = ReceiptItem.objects.create(
                 receipt=receipt,
                 raw_name=parsed.name,
-                normalized_name=parsed.name.lower(),
+                normalized_name=FoodClassifier.normalize(parsed.name),
                 quantity=parsed.quantity,
                 unit=parsed.unit,
-                is_food=is_food,
-                category=category_name,
+                is_food=parsed.is_food,
+                category=parsed.category,
             )
-            if is_food:
-                product = self._create_product(parsed, category_name, source)
+            if parsed.is_food:
+                product = self._create_product(parsed, parsed.category, source)
                 item.created_product = product
                 item.save(update_fields=["created_product"])
+            elif parsed.needs_review:
+                needs_review = True
+        if needs_review:
+            receipt.status = "needs_review"
+            receipt.save(update_fields=["status"])
         return receipt
+
+    def confirm_item_as_food(self, item: ReceiptItem, category_name: str, keyword: str) -> ReceiptItem:
+        category_name = category_name.strip() or "Продукты"
+        keyword = keyword.strip() or item.normalized_name
+        FoodClassifier.learn(self.user, keyword, category_name, is_food=True)
+        item.is_food = True
+        item.category = category_name
+        if not item.created_product:
+            parsed = ParsedItem(name=item.raw_name, quantity=item.quantity, unit=item.unit, is_food=True, category=category_name)
+            item.created_product = self._create_product(parsed, category_name, item.receipt.source)
+        item.save(update_fields=["is_food", "category", "created_product"])
+        self._refresh_receipt_status(item.receipt)
+        return item
+
+    def confirm_item_as_non_food(self, item: ReceiptItem, keyword: str = "") -> ReceiptItem:
+        FoodClassifier.learn(self.user, keyword.strip() or item.normalized_name, FoodClassifier.NON_FOOD_CATEGORY, is_food=False)
+        item.is_food = False
+        item.category = FoodClassifier.NON_FOOD_CATEGORY
+        item.save(update_fields=["is_food", "category"])
+        self._refresh_receipt_status(item.receipt)
+        return item
 
     def _create_product(self, parsed: ParsedItem, category_name: str, source: str) -> Product:
         category, _ = ProductCategory.objects.get_or_create(name=category_name or "Продукты")
@@ -217,6 +340,11 @@ class ReceiptImportService:
 
     def _clean_text(self, text: str) -> str:
         return text.replace("\x00", "")
+
+    def _refresh_receipt_status(self, receipt: Receipt) -> None:
+        has_unknown = receipt.items.filter(is_food=False, category=FoodClassifier.UNKNOWN_CATEGORY).exists()
+        receipt.status = "needs_review" if has_unknown else "processed"
+        receipt.save(update_fields=["status"])
 
 
 class EmailImportService:
