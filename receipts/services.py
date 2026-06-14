@@ -1,10 +1,13 @@
 import email
 import imaplib
+import json
+import mimetypes
 import re
 from dataclasses import dataclass
 from decimal import Decimal
 from email.header import decode_header, make_header
 from email.message import Message
+from pathlib import Path
 from urllib import request as urlrequest
 
 from django.conf import settings
@@ -45,6 +48,9 @@ class FoodClassifier:
         "гречка": "крупы",
         "макароны": "бакалея",
         "масло": "бакалея",
+        "орех": "бакалея",
+        "сухофрукт": "бакалея",
+        "коктейль": "бакалея",
         "сок": "напитки",
         "вода": "напитки",
     }
@@ -93,6 +99,7 @@ class ReceiptParser:
         return any(token in lowered for token in ["итого", "кассир", "инн", "фн", "чек", "скидка", "налог", "оплата", "карта"])
 
     def _clean_name(self, value: str) -> str:
+        value = re.sub(r"^\d+[.)]\s*", "", value)
         return re.sub(r"\s+", " ", value).strip(" .,-")
 
     def _normalize_unit(self, unit: str) -> str:
@@ -104,18 +111,61 @@ class OCRService:
     def extract_text(self, file_path: str) -> str:
         if not settings.OCR_API_URL or not settings.OCR_API_KEY:
             return ""
-        with open(file_path, "rb") as uploaded:
-            req = urlrequest.Request(
-                settings.OCR_API_URL,
-                data=uploaded.read(),
-                headers={"Authorization": f"Bearer {settings.OCR_API_KEY}", "Content-Type": "application/octet-stream"},
-                method="POST",
-            )
+        body, content_type = self._build_request_body(file_path)
+        req = urlrequest.Request(
+            settings.OCR_API_URL,
+            data=body,
+            headers={"Content-Type": content_type},
+            method="POST",
+        )
         try:
             with urlrequest.urlopen(req, timeout=20) as response:
-                return response.read().decode("utf-8")
-        except Exception:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (OSError, ValueError):
             return ""
+        return self._parse_response(payload)
+
+    def _build_request_body(self, file_path: str) -> tuple[bytes, str]:
+        boundary = "----SmartFridgeOCRBoundary"
+        path = Path(file_path)
+        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        with path.open("rb") as uploaded:
+            file_bytes = uploaded.read()
+
+        fields = {
+            "apikey": settings.OCR_API_KEY,
+            "language": "rus",
+            "isOverlayRequired": "false",
+            "OCREngine": "2",
+        }
+        chunks = []
+        for name, value in fields.items():
+            chunks.extend(
+                [
+                    f"--{boundary}\r\n".encode("ascii"),
+                    f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("ascii"),
+                    str(value).encode("utf-8"),
+                    b"\r\n",
+                ]
+            )
+        chunks.extend(
+            [
+                f"--{boundary}\r\n".encode("ascii"),
+                f'Content-Disposition: form-data; name="file"; filename="{path.name}"\r\n'.encode("utf-8"),
+                f"Content-Type: {content_type}\r\n\r\n".encode("ascii"),
+                file_bytes,
+                b"\r\n",
+                f"--{boundary}--\r\n".encode("ascii"),
+            ]
+        )
+        return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
+
+    def _parse_response(self, payload: dict) -> str:
+        if payload.get("IsErroredOnProcessing"):
+            return ""
+        results = payload.get("ParsedResults") or []
+        texts = [result.get("ParsedText", "") for result in results if isinstance(result, dict)]
+        return "\n".join(text.strip() for text in texts if text and text.strip())
 
 
 class ReceiptImportService:
