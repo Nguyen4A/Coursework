@@ -1,20 +1,16 @@
 import email
 import imaplib
-import json
-import mimetypes
 import re
 from dataclasses import dataclass
 from decimal import Decimal
 from email.header import decode_header, make_header
 from email.message import Message
-from pathlib import Path
-from urllib import request as urlrequest
 
-from django.conf import settings
-from django.db import IntegrityError, OperationalError, ProgrammingError
+from django.db import IntegrityError, OperationalError, ProgrammingError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from knowledge.models import ShelfLifeRule
 from knowledge.services import ShelfLifeService
 from pantry.models import Product, ProductCategory
 
@@ -31,7 +27,12 @@ class ParsedItem:
     needs_review: bool = False
 
 
-class FoodClassifier:
+class ReceiptItemClassifier:
+    def classify(self, name: str) -> tuple[bool, str]:
+        raise NotImplementedError
+
+
+class FoodClassifier(ReceiptItemClassifier):
     UNKNOWN_CATEGORY = "не определено"
     NON_FOOD_CATEGORY = "не пищевое"
     FALLBACK_FOOD_WORDS = {
@@ -206,63 +207,7 @@ class ReceiptParser:
 
 class OCRService:
     def extract_text(self, file_path: str) -> str:
-        if not settings.OCR_API_URL or not settings.OCR_API_KEY:
-            return ""
-        body, content_type = self._build_request_body(file_path)
-        req = urlrequest.Request(
-            settings.OCR_API_URL,
-            data=body,
-            headers={"Content-Type": content_type},
-            method="POST",
-        )
-        try:
-            with urlrequest.urlopen(req, timeout=20) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except (OSError, ValueError):
-            return ""
-        return self._parse_response(payload)
-
-    def _build_request_body(self, file_path: str) -> tuple[bytes, str]:
-        boundary = "----SmartFridgeOCRBoundary"
-        path = Path(file_path)
-        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        with path.open("rb") as uploaded:
-            file_bytes = uploaded.read()
-
-        fields = {
-            "apikey": settings.OCR_API_KEY,
-            "language": "rus",
-            "isOverlayRequired": "false",
-            "OCREngine": "2",
-        }
-        chunks = []
-        for name, value in fields.items():
-            chunks.extend(
-                [
-                    f"--{boundary}\r\n".encode("ascii"),
-                    f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("ascii"),
-                    str(value).encode("utf-8"),
-                    b"\r\n",
-                ]
-            )
-        chunks.extend(
-            [
-                f"--{boundary}\r\n".encode("ascii"),
-                f'Content-Disposition: form-data; name="file"; filename="{path.name}"\r\n'.encode("utf-8"),
-                f"Content-Type: {content_type}\r\n\r\n".encode("ascii"),
-                file_bytes,
-                b"\r\n",
-                f"--{boundary}--\r\n".encode("ascii"),
-            ]
-        )
-        return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
-
-    def _parse_response(self, payload: dict) -> str:
-        if payload.get("IsErroredOnProcessing"):
-            return ""
-        results = payload.get("ParsedResults") or []
-        texts = [result.get("ParsedText", "") for result in results if isinstance(result, dict)]
-        return "\n".join(text.strip() for text in texts if text and text.strip())
+        return ""
 
 
 class ReceiptImportService:
@@ -288,6 +233,7 @@ class ReceiptImportService:
                 unit=parsed.unit,
                 is_food=parsed.is_food,
                 category=parsed.category,
+                review_status=ReceiptItem.REVIEW_PENDING if parsed.needs_review else ReceiptItem.REVIEW_PROCESSED,
             )
             if parsed.is_food:
                 product = self._create_product(parsed, parsed.category, source)
@@ -300,28 +246,49 @@ class ReceiptImportService:
             receipt.save(update_fields=["status"])
         return receipt
 
-    def confirm_item_as_food(self, item: ReceiptItem, category_name: str, keyword: str) -> ReceiptItem:
+    @transaction.atomic
+    def confirm_item_as_food(self, item: ReceiptItem, category_name: str, keyword: str, shelf_life_days: int | None = None) -> ReceiptItem:
         category_name = category_name.strip() or "Продукты"
         keyword = keyword.strip() or item.normalized_name
         FoodClassifier.learn(self.user, keyword, category_name, is_food=True)
+        if shelf_life_days:
+            ShelfLifeRule.objects.update_or_create(
+                owner=self.user,
+                product_name=FoodClassifier.normalize(keyword),
+                defaults={
+                    "description": f"Пользовательское правило из проверки чека: {item.raw_name}",
+                    "shelf_life_days": shelf_life_days,
+                    "category": category_name,
+                    "tags": f"{keyword} {item.normalized_name}",
+                    "is_active": True,
+                },
+            )
         item.is_food = True
         item.category = category_name
         if not item.created_product:
             parsed = ParsedItem(name=item.raw_name, quantity=item.quantity, unit=item.unit, is_food=True, category=category_name)
-            item.created_product = self._create_product(parsed, category_name, item.receipt.source)
-        item.save(update_fields=["is_food", "category", "created_product"])
+            item.created_product = self._create_product(parsed, category_name, item.receipt.source, shelf_life_days=shelf_life_days)
+        elif shelf_life_days:
+            item.created_product.shelf_life_days = shelf_life_days
+            item.created_product.expiration_date = None
+            item.created_product.recalculate_expiration()
+            item.created_product.save(update_fields=["shelf_life_days", "expiration_date", "status", "updated_at"])
+        item.review_status = ReceiptItem.REVIEW_PROCESSED
+        item.save(update_fields=["is_food", "category", "created_product", "review_status"])
         self._refresh_receipt_status(item.receipt)
         return item
 
+    @transaction.atomic
     def confirm_item_as_non_food(self, item: ReceiptItem, keyword: str = "") -> ReceiptItem:
         FoodClassifier.learn(self.user, keyword.strip() or item.normalized_name, FoodClassifier.NON_FOOD_CATEGORY, is_food=False)
         item.is_food = False
         item.category = FoodClassifier.NON_FOOD_CATEGORY
-        item.save(update_fields=["is_food", "category"])
+        item.review_status = ReceiptItem.REVIEW_PROCESSED
+        item.save(update_fields=["is_food", "category", "review_status"])
         self._refresh_receipt_status(item.receipt)
         return item
 
-    def _create_product(self, parsed: ParsedItem, category_name: str, source: str) -> Product:
+    def _create_product(self, parsed: ParsedItem, category_name: str, source: str, shelf_life_days: int | None = None) -> Product:
         category, _ = ProductCategory.objects.get_or_create(name=category_name or "Продукты")
         product = Product(
             user=self.user,
@@ -331,10 +298,14 @@ class ReceiptImportService:
             category=category,
             source=Product.SOURCE_EMAIL if source == Receipt.SOURCE_EMAIL else Product.SOURCE_RECEIPT,
         )
-        suggestion = self.shelf_life.suggest(parsed.name)
-        if suggestion:
-            product.shelf_life_days = suggestion.days
-            product.comment = f"Срок предложен по правилу: {suggestion.rule_name}"
+        if shelf_life_days:
+            product.shelf_life_days = shelf_life_days
+            product.comment = "Срок указан при проверке чека."
+        else:
+            suggestion = self.shelf_life.suggest(parsed.name)
+            if suggestion:
+                product.shelf_life_days = suggestion.days
+                product.comment = f"Срок предложен по правилу: {suggestion.rule_name}"
         product.save()
         return product
 
@@ -342,7 +313,7 @@ class ReceiptImportService:
         return text.replace("\x00", "")
 
     def _refresh_receipt_status(self, receipt: Receipt) -> None:
-        has_unknown = receipt.items.filter(is_food=False, category=FoodClassifier.UNKNOWN_CATEGORY).exists()
+        has_unknown = receipt.items.filter(review_status=ReceiptItem.REVIEW_PENDING).exists()
         receipt.status = "needs_review" if has_unknown else "processed"
         receipt.save(update_fields=["status"])
 

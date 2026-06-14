@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Идеи рецептов{% endblock %}
+{% block content %}
+<div class="page-head">
+    <h1>Идеи рецептов</h1>
+    <a class="button" href="{% url 'pantry:product_list' %}?sort=priority">Съесть в первую очередь</a>
+</div>
+
+<div class="grid">
+    {% for suggestion in suggestions %}
+        <article class="product">
+            <h2>{{ suggestion.template.title }}</h2>
+            <p>{{ suggestion.template.steps }}</p>
+            <p><strong>Есть:</strong> {{ suggestion.available|join:', ' }}</p>
+            {% if suggestion.expiring %}
+                <p class="badge">Скоро испортится: {{ suggestion.expiring|join:', ' }}</p>
+            {% endif %}
+            {% if suggestion.missing %}
+                <p class="muted">Не хватает: {{ suggestion.missing|join:', ' }}</p>
+            {% else %}
+                <p class="badge">Можно приготовить сейчас</p>
+            {% endif %}
+            {% if suggestion.template.tags %}<p class="muted">{{ suggestion.template.tags }}</p>{% endif %}
+        </article>
+    {% empty %}
+        <p class="empty">Пока нет подходящих рецептов по текущим продуктам.</p>
+    {% endfor %}
+</div>
+{% endblock %}

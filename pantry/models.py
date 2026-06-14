@@ -65,8 +65,8 @@ class Product(models.Model):
     class Meta:
         ordering = ("expiration_date", "name")
         indexes = [
-            models.Index(fields=("user", "status")),
-            models.Index(fields=("user", "expiration_date")),
+            models.Index(fields=("user", "status"), name="pantry_prod_user_id_ee0680_idx"),
+            models.Index(fields=("user", "expiration_date"), name="pantry_prod_user_id_bff51e_idx"),
         ]
 
     def __str__(self):
@@ -93,3 +93,52 @@ class Product(models.Model):
             self.recalculate_expiration()
         self.refresh_status()
         super().save(*args, **kwargs)
+
+
+class RecipeTemplate(models.Model):
+    title = models.CharField("Название", max_length=160)
+    required_ingredients = models.JSONField("Ключевые ингредиенты", default=list)
+    steps = models.TextField("Шаги")
+    category = models.CharField("Категория", max_length=120, blank=True)
+    tags = models.CharField("Теги", max_length=250, blank=True)
+    prioritize_expiring = models.BooleanField("Приоритет скоропортящимся", default=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("title",)
+        indexes = [
+            models.Index(fields=("is_active", "prioritize_expiring")),
+        ]
+
+    def __str__(self):
+        return self.title
+
+
+class ProductUsageEvent(models.Model):
+    ACTION_USED = "used"
+    ACTION_WASTED = "wasted"
+    ACTION_CHOICES = [
+        (ACTION_USED, "Использовал"),
+        (ACTION_WASTED, "Выкинул"),
+    ]
+
+    product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL, related_name="usage_events")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="product_usage_events")
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    quantity = models.DecimalField(max_digits=8, decimal_places=2, default=1)
+    category_snapshot = models.CharField(max_length=120, blank=True)
+    product_name_snapshot = models.CharField(max_length=200)
+    expiration_date_snapshot = models.DateField(null=True, blank=True)
+    wasted_expired = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=("user", "action", "created_at")),
+            models.Index(fields=("user", "wasted_expired")),
+        ]
+
+    def __str__(self):
+        return f"{self.product_name_snapshot}: {self.action}"

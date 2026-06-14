@@ -1,12 +1,12 @@
 from email.message import EmailMessage
-import json
 import tempfile
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.urls import reverse
 
+from knowledge.models import ShelfLifeRule
 from pantry.models import Product
 from receipts.models import EmailImportSource, ProcessingLog, ProductKeyword, ReceiptItem
 from receipts.services import EmailImportService, OCRService, ReceiptImportService, ReceiptParser
@@ -47,6 +47,7 @@ class ReceiptTests(TestCase):
         item = receipt.items.get()
         self.assertFalse(item.is_food)
         self.assertEqual(item.category, "не определено")
+        self.assertEqual(item.review_status, ReceiptItem.REVIEW_PENDING)
         self.assertFalse(Product.objects.filter(user=self.user, name__icontains="Матча").exists())
 
     def test_review_unknown_item_as_food_learns_keyword(self):
@@ -56,7 +57,7 @@ class ReceiptTests(TestCase):
 
         response = self.client.post(
             reverse("receipts:item_review", args=[item.pk]),
-            {"action": "food", "keyword": "матча", "category": "напитки"},
+            {"action": "food", "keyword": "матча", "category": "напитки", "shelf_life_days": "4"},
         )
 
         self.assertRedirects(response, reverse("receipts:detail", args=[receipt.pk]))
@@ -64,42 +65,41 @@ class ReceiptTests(TestCase):
         receipt.refresh_from_db()
         self.assertTrue(item.is_food)
         self.assertEqual(item.category, "напитки")
+        self.assertEqual(item.review_status, ReceiptItem.REVIEW_PROCESSED)
         self.assertEqual(receipt.status, "processed")
-        self.assertTrue(Product.objects.filter(user=self.user, name__icontains="Матча").exists())
+        product = Product.objects.get(user=self.user, name__icontains="Матча")
+        self.assertEqual(product.shelf_life_days, 4)
         self.assertTrue(ProductKeyword.objects.filter(owner=self.user, word="матча", category="напитки", is_food=True).exists())
+        self.assertTrue(ShelfLifeRule.objects.filter(owner=self.user, product_name="матча", shelf_life_days=4).exists())
 
-    @override_settings(OCR_API_URL="https://api.example.test/parse/image", OCR_API_KEY="test-key")
-    @patch("receipts.services.urlrequest.urlopen")
-    def test_ocr_service_posts_image_to_ocr_space(self, urlopen):
-        response = MagicMock()
-        response.__enter__.return_value.read.return_value = json.dumps(
-            {"ParsedResults": [{"ParsedText": "Milk 1 pcs\nBread 1 pcs"}], "IsErroredOnProcessing": False}
-        ).encode("utf-8")
-        urlopen.return_value = response
+    def test_review_unknown_item_as_non_food_learns_exclusion(self):
+        self.client.force_login(self.user)
+        receipt = ReceiptImportService(self.user).import_text("Стикеры кухонные 1 шт 150.00")
+        item = ReceiptItem.objects.get(receipt=receipt)
+
+        response = self.client.post(
+            reverse("receipts:item_review", args=[item.pk]),
+            {"action": "non_food", "keyword": "стикеры"},
+        )
+
+        self.assertRedirects(response, reverse("receipts:detail", args=[receipt.pk]))
+        item.refresh_from_db()
+        receipt.refresh_from_db()
+        self.assertFalse(item.is_food)
+        self.assertEqual(item.review_status, ReceiptItem.REVIEW_PROCESSED)
+        self.assertEqual(receipt.status, "processed")
+        self.assertTrue(ProductKeyword.objects.filter(owner=self.user, word="стикеры", is_food=False).exists())
+
+    def test_ocr_service_does_not_send_files_to_external_api(self):
         with tempfile.NamedTemporaryFile(suffix=".png") as uploaded:
             uploaded.write(b"png bytes")
             uploaded.flush()
 
             text = OCRService().extract_text(uploaded.name)
 
-        self.assertEqual(text, "Milk 1 pcs\nBread 1 pcs")
-        request = urlopen.call_args.args[0]
-        body = request.data
-        self.assertIn(b'name="apikey"', body)
-        self.assertIn(b"test-key", body)
-        self.assertIn(b'name="language"', body)
-        self.assertIn(b"rus", body)
-        self.assertIn(b'name="file"', body)
+        self.assertEqual(text, "")
 
-    @override_settings(OCR_API_URL="https://api.example.test/parse/image", OCR_API_KEY="test-key")
-    @patch("receipts.services.urlrequest.urlopen")
-    def test_ocr_service_returns_empty_text_on_api_error(self, urlopen):
-        response = MagicMock()
-        response.__enter__.return_value.read.return_value = json.dumps(
-            {"ParsedResults": [], "IsErroredOnProcessing": True, "ErrorMessage": "Bad image"}
-        ).encode("utf-8")
-        urlopen.return_value = response
-
+    def test_ocr_service_returns_empty_text_for_local_noop(self):
         with tempfile.NamedTemporaryFile(suffix=".png") as uploaded:
             uploaded.write(b"png bytes")
             uploaded.flush()

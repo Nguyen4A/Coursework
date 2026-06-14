@@ -11,6 +11,7 @@
     <a class="{% if status_filter == 'expiring_soon' %}active{% endif %}" href="?status=expiring_soon">Скоро истекают</a>
     <a class="{% if status_filter == 'expired' %}active{% endif %}" href="?status=expired">Просроченные</a>
     <a class="{% if status_filter == 'needs_review' %}active{% endif %}" href="?status=needs_review">Требуют проверки</a>
+    <a class="{% if sort == 'priority' %}active{% endif %}" href="?status={{ status_filter }}&sort=priority">Съесть в первую очередь</a>
 </div>
 <div class="grid">
     {% for product in products %}
@@ -19,10 +20,23 @@
             <p>{{ product.quantity }} {{ product.get_unit_display }}{% if product.category %} · {{ product.category.name }}{% endif %}</p>
             <p>Куплено: {{ product.purchase_date }} · Годно до: {{ product.expiration_date|default:'нужно уточнить' }}</p>
             <p class="badge">{{ product.get_status_display }}</p>
+            {% if product.priority_reasons %}
+                <p class="muted">{{ product.priority_reasons|join:', ' }}</p>
+            {% endif %}
             {% if product.comment %}<p class="muted">{{ product.comment|linebreaksbr }}</p>{% endif %}
             <div class="actions">
                 <a href="{% url 'pantry:product_update' product.pk %}">Редактировать</a>
                 <a href="{% url 'pantry:product_delete' product.pk %}">Удалить</a>
+            </div>
+            <div class="actions">
+                <form method="post" action="{% url 'pantry:product_mark_used' product.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button>Использовал</button>
+                </form>
+                <form method="post" action="{% url 'pantry:product_mark_wasted' product.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button class="danger">Выкинул</button>
+                </form>
             </div>
         </article>
     {% empty %}

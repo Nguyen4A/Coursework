@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import EmailImportSourceForm, ReceiptFileForm, ReceiptItemReviewForm, ReceiptManualTextForm, ReceiptTextForm
 from .models import EmailImportSource, Receipt, ReceiptItem
-from .services import EmailImportService, OCRService, ReceiptImportService
+from .services import EmailImportService, FoodClassifier, OCRService, ReceiptImportService
 
 
 @login_required
@@ -53,6 +53,21 @@ def detail(request, pk):
 
 
 @login_required
+def review_queue(request):
+    items = (
+        ReceiptItem.objects.filter(
+            receipt__user=request.user,
+            review_status=ReceiptItem.REVIEW_PENDING,
+            category=FoodClassifier.UNKNOWN_CATEGORY,
+        )
+        .select_related("receipt")
+        .order_by("created_at")
+    )
+    forms = [(item, ReceiptItemReviewForm(initial={"keyword": item.normalized_name})) for item in items]
+    return render(request, "receipts/review_queue.html", {"forms": forms})
+
+
+@login_required
 def review_item(request, pk):
     item = get_object_or_404(ReceiptItem.objects.select_related("receipt"), pk=pk, receipt__user=request.user)
     if request.method != "POST":
@@ -61,13 +76,20 @@ def review_item(request, pk):
     if form.is_valid():
         importer = ReceiptImportService(request.user)
         if form.cleaned_data["action"] == ReceiptItemReviewForm.ACTION_FOOD:
-            importer.confirm_item_as_food(item, form.cleaned_data["category"], form.cleaned_data["keyword"])
+            importer.confirm_item_as_food(
+                item,
+                form.cleaned_data["category"],
+                form.cleaned_data["keyword"],
+                shelf_life_days=form.cleaned_data.get("shelf_life_days"),
+            )
             messages.success(request, "Позиция добавлена как продукт, правило сохранено.")
         else:
             importer.confirm_item_as_non_food(item, form.cleaned_data["keyword"])
             messages.success(request, "Позиция отмечена как непищевая, правило сохранено.")
     else:
         messages.error(request, "Не удалось сохранить проверку позиции.")
+    if request.POST.get("next") == "queue":
+        return redirect("receipts:review_queue")
     return redirect("receipts:detail", pk=item.receipt_id)
 
 

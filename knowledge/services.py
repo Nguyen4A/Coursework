@@ -1,9 +1,6 @@
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-import json
-from urllib import request as urlrequest
 
-from django.conf import settings
 from django.db.models import Q
 
 from .models import ShelfLifeRule
@@ -42,10 +39,6 @@ class ShelfLifeService:
         if not useful:
             return None
 
-        llm_days = self._ask_llm(name, useful)
-        if llm_days:
-            return ShelfLifeSuggestion(llm_days, "LLM на основе базы знаний", useful[0][0])
-
         score, best = useful[0]
         return ShelfLifeSuggestion(best.shelf_life_days, best.product_name, score)
 
@@ -62,32 +55,3 @@ class ShelfLifeService:
         target_tokens = set(haystack.split())
         overlap = len(tokens & target_tokens) / max(len(tokens), 1)
         return max(direct, overlap)
-
-    def _ask_llm(self, name: str, candidates: list[tuple[float, ShelfLifeRule]]) -> int | None:
-        if not settings.LLM_API_URL or not settings.LLM_API_KEY:
-            return None
-        payload = {
-            "product": name,
-            "candidates": [
-                {
-                    "name": rule.product_name,
-                    "days": rule.shelf_life_days,
-                    "conditions": rule.storage_conditions,
-                    "score": score,
-                }
-                for score, rule in candidates
-            ],
-        }
-        req = urlrequest.Request(
-            settings.LLM_API_URL,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {settings.LLM_API_KEY}", "Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urlrequest.urlopen(req, timeout=8) as response:
-                data = json.loads(response.read().decode("utf-8"))
-        except Exception:
-            return None
-        days = data.get("shelf_life_days")
-        return int(days) if isinstance(days, int) and days > 0 else None

@@ -28,6 +28,7 @@ class ReceiptItemReviewForm(forms.Form):
     action = forms.ChoiceField(choices=[(ACTION_FOOD, "Это продукт"), (ACTION_NON_FOOD, "Не продукт")])
     keyword = forms.CharField(label="Ключевое слово", max_length=120, required=False)
     category = forms.CharField(label="Категория", max_length=120, required=False)
+    shelf_life_days = forms.IntegerField(label="Срок годности, дней", min_value=1, required=False)
 
     def clean(self):
         cleaned = super().clean()

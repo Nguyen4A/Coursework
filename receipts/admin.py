@@ -18,8 +18,8 @@ class ReceiptAdmin(admin.ModelAdmin):
 
 @admin.register(ReceiptItem)
 class ReceiptItemAdmin(admin.ModelAdmin):
-    list_display = ("normalized_name", "receipt", "quantity", "unit", "is_food", "category", "created_product")
-    list_filter = ("is_food", "category")
+    list_display = ("normalized_name", "receipt", "quantity", "unit", "is_food", "category", "review_status", "created_product")
+    list_filter = ("is_food", "category", "review_status")
     search_fields = ("raw_name", "normalized_name")
 
 

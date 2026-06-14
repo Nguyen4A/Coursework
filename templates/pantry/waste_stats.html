@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Статистика отходов{% endblock %}
+{% block content %}
+<div class="page-head">
+    <h1>Статистика отходов</h1>
+    <a class="button" href="{% url 'pantry:product_list' %}">К продуктам</a>
+</div>
+
+<section class="card">
+    <div class="stats-grid">
+        <div>
+            <strong>{{ used_count }}</strong>
+            <p class="muted">использовано</p>
+        </div>
+        <div>
+            <strong>{{ wasted_count }}</strong>
+            <p class="muted">выкинуто</p>
+        </div>
+        <div>
+            <strong>{{ waste_percent }}%</strong>
+            <p class="muted">доля отходов</p>
+        </div>
+        <div>
+            <strong>{{ wasted_expired_count }}</strong>
+            <p class="muted">выкинуто после истечения срока</p>
+        </div>
+    </div>
+    {% if recommendation %}<p class="badge">{{ recommendation }}</p>{% endif %}
+</section>
+
+<section class="card">
+    <h2>Категории, которые чаще выбрасываются</h2>
+    {% for category in wasted_categories %}
+        <div class="row">
+            <span>{{ category.category_snapshot }}</span>
+            <strong>{{ category.count }}</strong>
+        </div>
+    {% empty %}
+        <p class="empty">Пока нет выброшенных продуктов.</p>
+    {% endfor %}
+</section>
+
+<section class="card">
+    <h2>Последние события</h2>
+    {% for event in latest_events %}
+        <div class="row">
+            <span>{{ event.product_name_snapshot }} · {{ event.get_action_display }} · {{ event.quantity }}</span>
+            <small>{{ event.created_at }}</small>
+        </div>
+    {% empty %}
+        <p class="empty">История пока пустая.</p>
+    {% endfor %}
+</section>
+{% endblock %}

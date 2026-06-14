@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Проверьте найденные товары{% endblock %}
+{% block content %}
+<div class="page-head">
+    <h1>Проверьте найденные товары</h1>
+    <a class="button" href="{% url 'receipts:import_text' %}">Импорт чека</a>
+</div>
+
+{% for item, form in forms %}
+    <section class="card">
+        <h2>{{ item.raw_name }}</h2>
+        <p class="muted">Чек #{{ item.receipt_id }} · {{ item.quantity }} {{ item.unit }}</p>
+        <form method="post" action="{% url 'receipts:item_review' item.pk %}" class="review-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="queue">
+            {% include 'shared/form.html' %}
+            <button class="primary">Подтвердить</button>
+        </form>
+    </section>
+{% empty %}
+    <section class="card">
+        <p class="empty">Нет позиций, которые нужно проверить.</p>
+    </section>
+{% endfor %}
+{% endblock %}

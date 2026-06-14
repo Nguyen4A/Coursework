@@ -1,20 +1,36 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 
 from knowledge.services import ShelfLifeService
 
 from .forms import ProductForm
 from .models import Product
+from .services import ProductPriorityService, ProductUsageService, RecipeSuggestionService, WasteStatsService
 
 
 @login_required
 def product_list(request):
     status_filter = request.GET.get("status", "all")
+    sort = request.GET.get("sort", "")
     products = Product.objects.filter(user=request.user).select_related("category")
     if status_filter in {Product.STATUS_ACTIVE, Product.STATUS_EXPIRING_SOON, Product.STATUS_EXPIRED, Product.STATUS_NEEDS_REVIEW}:
         products = products.filter(status=status_filter)
-    return render(request, "pantry/product_list.html", {"products": products, "status_filter": status_filter})
+    priority_service = ProductPriorityService()
+    if sort == "priority":
+        priorities = priority_service.rank(products)
+        products = [priority.product for priority in priorities]
+        for priority in priorities:
+            priority.product.priority_score = priority.score
+            priority.product.priority_reasons = priority.reasons
+    else:
+        products = list(products)
+        for product in products:
+            priority = priority_service.evaluate(product)
+            product.priority_score = priority.score
+            product.priority_reasons = priority.reasons
+    return render(request, "pantry/product_list.html", {"products": products, "status_filter": status_filter, "sort": sort})
 
 
 @login_required
@@ -59,3 +75,35 @@ def product_delete(request, pk):
         messages.success(request, "Продукт удален.")
         return redirect("pantry:product_list")
     return render(request, "pantry/product_confirm_delete.html", {"product": product})
+
+
+@login_required
+def product_mark_used(request, pk):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    product = get_object_or_404(Product, pk=pk, user=request.user)
+    ProductUsageService().mark(product, "used")
+    messages.success(request, "Продукт отмечен как использованный.")
+    return redirect("pantry:product_list")
+
+
+@login_required
+def product_mark_wasted(request, pk):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    product = get_object_or_404(Product, pk=pk, user=request.user)
+    ProductUsageService().mark(product, "wasted")
+    messages.success(request, "Продукт отмечен как выброшенный.")
+    return redirect("pantry:product_list")
+
+
+@login_required
+def recipe_ideas(request):
+    suggestions = RecipeSuggestionService(request.user).suggest()
+    return render(request, "pantry/recipe_ideas.html", {"suggestions": suggestions})
+
+
+@login_required
+def waste_stats(request):
+    stats = WasteStatsService(request.user).build()
+    return render(request, "pantry/waste_stats.html", stats)

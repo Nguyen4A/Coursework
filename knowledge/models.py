@@ -17,8 +17,8 @@ class ShelfLifeRule(models.Model):
     class Meta:
         ordering = ("product_name",)
         indexes = [
-            models.Index(fields=("owner", "product_name")),
-            models.Index(fields=("is_active",)),
+            models.Index(fields=("owner", "product_name"), name="knowledge_s_owner_i_86bb94_idx"),
+            models.Index(fields=("is_active",), name="knowledge_s_is_acti_036ff1_idx"),
         ]
 
     def __str__(self):

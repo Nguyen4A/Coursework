@@ -43,3 +43,5 @@ small, .muted { color:var(--muted); }
 .empty { color:var(--muted); }
 .review-form { margin:12px 0; padding:12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb; }
 .review-form label { margin:8px 0; }
+.stats-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:16px; margin-bottom:16px; }
+.stats-grid strong { font-size:28px; }

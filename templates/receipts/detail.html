@@ -3,13 +3,14 @@
 <section class="card">
     <h1>{{ receipt }}</h1>
     <p>Статус: {{ receipt.status }} · создан: {{ receipt.created_at }}</p>
+    <p><a class="button" href="{% url 'receipts:review_queue' %}">Проверьте найденные товары</a></p>
     {% if receipt.file %}<p>Файл: <a href="{{ receipt.file.url }}">{{ receipt.file.name }}</a></p>{% endif %}
     <h2>Позиции</h2>
     <ul>
         {% for item in receipt.items.all %}
             <li>
                 {{ item.raw_name }} · {{ item.quantity }} {{ item.unit }} · {{ item.category|default:'без категории' }}{% if item.created_product %} → продукт создан{% endif %}
-                {% if not item.is_food and item.category == 'не определено' %}
+                {% if item.review_status == 'pending' %}
                     <form method="post" action="{% url 'receipts:item_review' item.pk %}" class="review-form">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="food">
@@ -20,6 +21,10 @@
                         <label>
                             <span>Категория</span>
                             <input name="category" placeholder="Например: молочные продукты">
+                        </label>
+                        <label>
+                            <span>Срок годности, дней</span>
+                            <input name="shelf_life_days" type="number" min="1" placeholder="Например: 5">
                         </label>
                         <button class="primary">Это продукт</button>
                     </form>

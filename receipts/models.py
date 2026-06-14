@@ -51,6 +51,13 @@ class Receipt(models.Model):
 
 
 class ReceiptItem(models.Model):
+    REVIEW_PROCESSED = "processed"
+    REVIEW_PENDING = "pending"
+    REVIEW_CHOICES = [
+        (REVIEW_PROCESSED, "Обработано"),
+        (REVIEW_PENDING, "Нужно проверить"),
+    ]
+
     receipt = models.ForeignKey(Receipt, on_delete=models.CASCADE, related_name="items")
     raw_name = models.CharField(max_length=250)
     normalized_name = models.CharField(max_length=200)
@@ -58,8 +65,14 @@ class ReceiptItem(models.Model):
     unit = models.CharField(max_length=20, default="pcs")
     is_food = models.BooleanField(default=True)
     category = models.CharField(max_length=120, blank=True)
+    review_status = models.CharField(max_length=20, choices=REVIEW_CHOICES, default=REVIEW_PROCESSED)
     created_product = models.ForeignKey("pantry.Product", null=True, blank=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=("review_status", "category")),
+        ]
 
     def __str__(self):
         return self.normalized_name
